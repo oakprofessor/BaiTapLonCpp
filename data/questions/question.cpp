@@ -51,11 +51,3 @@ int Question::getPlusPoint(){
 int Question::getMinusPoint(){
     return minus_point;
 }
-
-int Question::giveScore(std::string answer){
-    if (answer == getRightAnswer()) {
-        return plus_point;
-    } else {
-        return minus_point;
-    }
-}

@@ -1,5 +1,6 @@
 #include <string>
 #include <vector>
+#include <cstdlib>
 #include "../questions/question.hpp"
 class QuestionManager
 {

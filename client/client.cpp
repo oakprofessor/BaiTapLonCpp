@@ -14,37 +14,16 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <fstream>
+#include <atomic>
 using namespace std;
-
-bool check_if_string_end(std::string a,std::string b){
-    int a_len = a.size();
-    int b_len = b.size();
-    if (a_len >= b_len) {
-        for(size_t i = 1; i <= b_len; i++)
-        {
-            char _a = a.at(a_len-i);
-            char _b = a.at(b_len-i);
-            if (_a != _b) 
-            {
-                return false;
-            }
-        }
-        return true;
-    } else {
-        return false;
-    }
-}
-
 //Client side
 int main(int argc, char *argv[])
 {
     //grab the IP address and port number 
-    std::string ip = "127.0.0.1";
-    const char *serverIp = ip.c_str();;
+    char *serverIp = "127.0.0.1";
     int port = 12345; 
     //create a message buffer 
     char msg[1500]; 
-    memset(&msg, 0, sizeof(msg));
     //setup a socket and connection tools 
     struct hostent* host = gethostbyname(serverIp); 
     sockaddr_in sendSockAddr;   
@@ -60,71 +39,89 @@ int main(int argc, char *argv[])
     if(status < 0)
     {
         std::cout<<"Error connecting to socket!"<<endl;
-        return 0;
+        return 1;
+
     }
     std::cout << "Connected to the server!" << endl;
     int bytesRead, bytesWritten = 0;
     struct timeval start1, end1;
     gettimeofday(&start1, NULL);
 
-    // std::cout<<"Hello";
-
-    bool register_status = true;
-    std::string connect = "Welcome to Question! \nPlease enter your nickname:";
-    std::string again = "Please enter a different nickname:";
-    std::string start = "Type you answer below:";
+    bool register_status = false;
+    char again[1500] = "Please enter a different nickname:";
+    char start[1500] = "Type you answer below:";
     bool ingame = false;
 
     while(1)
     {
-        std::string message = msg;
-        // std::cout<<"Hello";
-        if (message == "exit")
+        std::string a = msg;
+        //clear the buffer
+        memset(&msg, 0, sizeof(msg));
+        //receive message from server
+        bytesRead += recv(clientSd, (char*)&msg, sizeof(msg), 0);
+        
+        if (!strcmp(msg, "exit"))
         {
             std::cout << "Server has quit the session" << endl;
             break;
         }
 
-        // std::cout<<"Hello";
-        if ( message == again || message == connect) 
+        if (!strcmp(msg, again)) 
         {
             register_status = false;
         }
 
-        // std::cout<<"Hello";
-        if ( check_if_string_end(message,start) ) 
+        if (!strcmp(msg, start)) 
         {
             ingame = true;
         }
         
-        if (msg[0] != 0) {
-            std::cout << "Server: " << msg << std::endl;
-        }
-        
+        std::cout << "Server: " << msg << std::endl;
+
         if (!register_status) 
         {
-            memset(&msg, 0, sizeof(msg));
             std:: cout << ">";
             string data;
             getline(cin, data);
+            //clear the buffer
+            memset(&msg, 0, sizeof(msg));
             strcpy(msg, data.c_str());
             bytesWritten += send(clientSd, (char*)&msg, strlen(msg), 0);
             register_status = true;
+            memset(&msg, 0, sizeof(msg));
         }
         
-        if (ingame) {
-            memset(&msg, 0, sizeof(msg));
+        std::atomic<bool> flag{false};
+
+        void listenToServer() {
+            while (!flag)
+            {
+                std::cout << "Listening...\n"; // Sleep for one second
+            }
+        }
+
+        void sendToServer() {
             std::cout << ">";
             string data;
             getline(cin, data);
+            if (!strcmp(data, "exit")) {
+                flag = true;
+                close(clientSd);
+            }
+            //clear the buffer
+            memset(&msg, 0, sizeof(msg));
             strcpy(msg, data.c_str());
             bytesWritten += send(clientSd, (char*)&msg, strlen(msg), 0);
-            ingame = false;
+            memset(&msg, 0, sizeof(msg));
         }
-        
+
+        if (ingame) {
+            // std::thread sendS(sendToServer);
+            std::thread listenS(listenToServer);
+            flag=true;
+            listenS.join();
+        }
         memset(&msg, 0, sizeof(msg));
-        //receive message from server
-        bytesRead += recv(clientSd, (char*)&msg, sizeof(msg), 0);
     }
     gettimeofday(&end1, NULL);
     close(clientSd);

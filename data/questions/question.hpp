@@ -15,7 +15,6 @@ public:
     int getPlusPoint();
     int getMinusPoint();
     void toString();
-    int giveScore(std::string answer);
 private:
     std::string question;
     std::vector<std::string> answer;
